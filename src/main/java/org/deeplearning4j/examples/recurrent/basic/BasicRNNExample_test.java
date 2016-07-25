@@ -10,82 +10,95 @@ import org.deeplearning4j.nn.conf.layers.RnnOutputLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
+import org.deeplearning4j.ui.weights.HistogramIterationListener;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.lossfunctions.LossFunctions.LossFunction;
+
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Random;
 
-/**
- * Created by Lakini on 20/05/16.
- */
-public class RecurrentNetworkExample {
+public class BasicRNNExample_test {
 
 	// define a sentence to learn
-	public static final char[] LEARNSTRING = "Sri Lanka is my Country".toCharArray();
+	//public static final char[] LEARNSTRING = "Der Cottbuser Postkutscher putzt den Cottbuser Postkutschkasten.".toCharArray();
+    public static final char[] LEARNSTRING = "Lakini".toCharArray();
 
 	// a list of all possible characters
 	public static final List<Character> LEARNSTRING_CHARS_LIST = new ArrayList<Character>();
 
 	// RNN dimensions
 	public static final int HIDDEN_LAYER_WIDTH = 50;
-	public static final int HIDDEN_LAYER_CONT = 5;
+	public static final int HIDDEN_LAYER_CONT = 2;
 	public static final Random r = new Random(7894);
 
 	public static void main(String[] args) {
 
 		// create a dedicated list of possible chars in LEARNSTRING_CHARS_LIST
 		LinkedHashSet<Character> LEARNSTRING_CHARS = new LinkedHashSet<Character>();
-		for (char c : LEARNSTRING)
-			LEARNSTRING_CHARS.add(c);
-		LEARNSTRING_CHARS_LIST.addAll(LEARNSTRING_CHARS);
+		for (char c : LEARNSTRING){
+            System.out.println(Character.toString(c));
+            LEARNSTRING_CHARS.add(c);
+        }
 
+        LEARNSTRING_CHARS_LIST.addAll(LEARNSTRING_CHARS);
+
+        //Buiding the network///////////////////////////////////////////////////////////////////////////
 		// some common parameters
-		NeuralNetConfiguration.Builder builder = new NeuralNetConfiguration.Builder();
-		builder.iterations(10);
-		builder.learningRate(0.001);
-		builder.optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT);
-		builder.seed(123);
-		builder.biasInit(0);
-		builder.miniBatch(false);
-		builder.updater(Updater.RMSPROP);
-		builder.weightInit(WeightInit.XAVIER);
+		NeuralNetConfiguration.Builder builder = new NeuralNetConfiguration.Builder()
+            .iterations(10)
+            .learningRate(0.001)
+            .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+            .seed(123)
+            .biasInit(0)
+            .miniBatch(false)
+            .updater(Updater.RMSPROP)
+            .weightInit(WeightInit.XAVIER);
 
 		ListBuilder listBuilder = builder.list(HIDDEN_LAYER_CONT + 1);
 
-		// here use GravesLSTM Builder
+		// first difference, for rnns we need to use GravesLSTM.Builder
 		for (int i = 0; i < HIDDEN_LAYER_CONT; i++) {
 			GravesLSTM.Builder hiddenLayerBuilder = new GravesLSTM.Builder();
 			hiddenLayerBuilder.nIn(i == 0 ? LEARNSTRING_CHARS.size() : HIDDEN_LAYER_WIDTH);
 			hiddenLayerBuilder.nOut(HIDDEN_LAYER_WIDTH);
-            //set activation function to Tanh
+			// adopted activation function from GravesLSTMCharModellingExample
+			// seems to work well with RNNs
 			hiddenLayerBuilder.activation("tanh");
 			listBuilder.layer(i, hiddenLayerBuilder.build());
 		}
 
-		// Use RnnOutputLayer.Builder
+		// we need to use RnnOutputLayer for our RNN
 		RnnOutputLayer.Builder outputLayerBuilder = new RnnOutputLayer.Builder(LossFunction.MCXENT);
-        //Set activation function to Softmax
+		// softmax normalizes the output neurons, the sum of all outputs is 1
+		// this is required for our sampleFromDistribution-function
 		outputLayerBuilder.activation("softmax");
 		outputLayerBuilder.nIn(HIDDEN_LAYER_WIDTH);
 		outputLayerBuilder.nOut(LEARNSTRING_CHARS.size());
 		listBuilder.layer(HIDDEN_LAYER_CONT, outputLayerBuilder.build());
-        //Set pretrain false as this doesn't use unsupervised learning and set Back propergation true
+
+		// finish builder
 		listBuilder.pretrain(false);
 		listBuilder.backprop(true);
 		listBuilder.build();
 
-		// create network using MultiLayerConfiguration
+		// create network
 		MultiLayerConfiguration conf = listBuilder.build();
 		MultiLayerNetwork net = new MultiLayerNetwork(conf);
 		net.init();
 		net.setListeners(new ScoreIterationListener(1));
 
+		/*
+		 * CREATE OUR TRAINING DATA
+		 */
+		// create input and output arrays: SAMPLE_INDEX, INPUT_NEURON,
+		// SEQUENCE_POSITION
 		INDArray input = Nd4j.zeros(1, LEARNSTRING_CHARS_LIST.size(), LEARNSTRING.length);
 		INDArray labels = Nd4j.zeros(1, LEARNSTRING_CHARS_LIST.size(), LEARNSTRING.length);
+        //INDArray inputTest = Nd4j.zeros(1, LEARNSTRING_CHARS_LIST.size(), TESTSTRING.length);
 		// loop through our sample-sentence
 		int samplePos = 0;
 		for (char currentChar : LEARNSTRING) {
@@ -100,28 +113,32 @@ public class RecurrentNetworkExample {
 		}
 		DataSet trainingData = new DataSet(input, labels);
 
-		// set Epoches to 100
+		// some epochs
 		for (int epoch = 0; epoch < 100; epoch++) {
+
 			System.out.println("Epoch " + epoch);
 
 			// train the data
 			net.fit(trainingData);
 
-			// clear current stance from the last example as RNN use previous state's data
+			// clear current stance from the last example
 			net.rnnClearPreviousState();
 
-            //train the RNN
-			// put the first caracter into the rrn as an initialisation
-			INDArray testInit = Nd4j.zeros(LEARNSTRING_CHARS_LIST.size());
-			testInit.putScalar(LEARNSTRING_CHARS_LIST.indexOf(LEARNSTRING[0]), 1);
+			// put the first character into the rrn as an initialisation
+            INDArray testInit = Nd4j.zeros(LEARNSTRING_CHARS_LIST.size());
+            testInit.putScalar(LEARNSTRING_CHARS_LIST.indexOf(LEARNSTRING[0]), 1);
+
+			// run one step -> IMPORTANT: rnnTimeStep() must be called, not
+			// output()
+			// the output shows what the net thinks what should come next
 			INDArray output = net.rnnTimeStep(testInit);
 
-			// RNN guess the next characters
+			// now the net should guess LEARNSTRING.length mor characters
 			for (int j = 0; j < LEARNSTRING.length; j++) {
 
 				// first process the last output of the network to a concrete
 				// neuron, the neuron with the highest output cas the highest
-				// cancel to get chosen
+				// cance to get chosen
 				double[] outputProbDistribution = new double[LEARNSTRING_CHARS.size()];
 				for (int k = 0; k < outputProbDistribution.length; k++) {
 					outputProbDistribution[k] = output.getDouble(k);
@@ -135,9 +152,25 @@ public class RecurrentNetworkExample {
 				INDArray nextInput = Nd4j.zeros(LEARNSTRING_CHARS_LIST.size());
 				nextInput.putScalar(sampledCharacterIdx, 1);
 				output = net.rnnTimeStep(nextInput);
+
 			}
 			System.out.print("\n");
 		}
+
+//
+//        ///finding the accuracy of the model
+//        DataSetIterator iter = ...;
+//
+//        while(iter.hasNext()) {
+//            DataSet next = iter.next();
+//            DoubleMatrix predicted = network.predict(next.getFirst());
+//            DoubleMatrix actual = next.getSecond();
+//            eval.eval(acutal,predicted);
+//
+//        }
+//
+//        System.out.println(eval.stats());
+//////////////////////////////end of accuracy testing
 	}
 
 	private static int findIndexOfHighestValue(double[] distribution) {

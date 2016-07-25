@@ -37,6 +37,7 @@ public class LenetMnistExample {
         int seed = 123;
 
         log.info("Load data....");
+        //if the dataset is for training then this is True
         DataSetIterator mnistTrain = new MnistDataSetIterator(batchSize,true,12345);
         DataSetIterator mnistTest = new MnistDataSetIterator(batchSize,false,12345);
 
@@ -88,6 +89,7 @@ public class LenetMnistExample {
         log.info("Train model....");
         model.setListeners(new ScoreIterationListener(1));
         for( int i=0; i<nEpochs; i++ ) {
+            System.out.println("Epoch:"+i);
             model.fit(mnistTrain);
             log.info("*** Completed epoch {} ***", i);
 
@@ -96,6 +98,7 @@ public class LenetMnistExample {
             while(mnistTest.hasNext()){
                 DataSet ds = mnistTest.next();
                 INDArray output = model.output(ds.getFeatureMatrix(), false);
+                System.out.println(output.toString());
                 eval.eval(ds.getLabels(), output);
             }
             log.info(eval.stats());

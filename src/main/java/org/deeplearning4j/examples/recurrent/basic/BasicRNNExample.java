@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Random;
-
 import org.deeplearning4j.nn.api.OptimizationAlgorithm;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
@@ -32,10 +31,11 @@ public class BasicRNNExample {
 	// define a sentence to learn
 	//public static final char[] LEARNSTRING = "Der Cottbuser Postkutscher putzt den Cottbuser Postkutschkasten.".toCharArray();
     public static final char[] LEARNSTRING = "Lakini Sithara Senanayaka".toCharArray();
+    public static final char[] TESTSTRING = "Chathumi Sachintha Senanayaka".toCharArray();
 
 	// a list of all possible characters
 	public static final List<Character> LEARNSTRING_CHARS_LIST = new ArrayList<Character>();
-
+    public static final List<Character> TESTSTRING_CHARS_LIST = new ArrayList<Character>();
 	// RNN dimensions
 	public static final int HIDDEN_LAYER_WIDTH = 50;
 	public static final int HIDDEN_LAYER_CONT = 2;
@@ -47,7 +47,13 @@ public class BasicRNNExample {
 		LinkedHashSet<Character> LEARNSTRING_CHARS = new LinkedHashSet<Character>();
 		for (char c : LEARNSTRING)
 			LEARNSTRING_CHARS.add(c);
-		LEARNSTRING_CHARS_LIST.addAll(LEARNSTRING_CHARS);
+        LEARNSTRING_CHARS_LIST.addAll(LEARNSTRING_CHARS);
+
+        // create a dedicated list of possible chars in testing CHARS_LIST
+        LinkedHashSet<Character> TESTSTRING_CHARS = new LinkedHashSet<Character>();
+        for (char c : TESTSTRING)
+            TESTSTRING_CHARS.add(c);
+        TESTSTRING_CHARS_LIST.addAll(TESTSTRING_CHARS);
 
 		// some common parameters
 		NeuralNetConfiguration.Builder builder = new NeuralNetConfiguration.Builder();
@@ -100,6 +106,7 @@ public class BasicRNNExample {
 		// SEQUENCE_POSITION
 		INDArray input = Nd4j.zeros(1, LEARNSTRING_CHARS_LIST.size(), LEARNSTRING.length);
 		INDArray labels = Nd4j.zeros(1, LEARNSTRING_CHARS_LIST.size(), LEARNSTRING.length);
+        //INDArray inputTest = Nd4j.zeros(1, LEARNSTRING_CHARS_LIST.size(), TESTSTRING.length);
 		// loop through our sample-sentence
 		int samplePos = 0;
 		for (char currentChar : LEARNSTRING) {
@@ -156,9 +163,22 @@ public class BasicRNNExample {
 
 			}
 			System.out.print("\n");
-
 		}
 
+//
+//        ///finding the accuracy of the model
+//        DataSetIterator iter = ...;
+//
+//        while(iter.hasNext()) {
+//            DataSet next = iter.next();
+//            DoubleMatrix predicted = network.predict(next.getFirst());
+//            DoubleMatrix actual = next.getSecond();
+//            eval.eval(acutal,predicted);
+//
+//        }
+//
+//        System.out.println(eval.stats());
+//////////////////////////////end of accuracy testing
 	}
 
 	private static int findIndexOfHighestValue(double[] distribution) {

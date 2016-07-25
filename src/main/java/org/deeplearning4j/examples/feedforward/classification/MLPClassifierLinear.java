@@ -42,6 +42,7 @@ public class MLPClassifierLinear {
         double learningRate = 0.01;
         int batchSize = 50;
         int nEpochs = 30;
+        //20 iterations
 
         int numInputs = 2;
         int numOutputs = 2;
